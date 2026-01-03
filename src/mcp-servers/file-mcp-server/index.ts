@@ -1,8 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import * as z from 'zod/v4';
-import { appendFile, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { ReadResourceResult } from '@modelcontextprotocol/sdk/types';
 
 const docsPath = path.resolve(
   process.cwd(),
@@ -87,6 +88,33 @@ server.registerTool(
           text: newDocContent,
         },
       ],
+    };
+  }
+);
+
+server.registerResource(
+  'get_user_docs_resources',
+  'docs://documents',
+  {
+    title: 'Get users docs resources',
+    description: 'Get users docs resources as json',
+    mimeType: 'application/json',
+  },
+  async (): Promise<ReadResourceResult> => {
+    let contents = [];
+
+    try {
+      const files = await readdir(docsPath);
+      contents = files.map((file_name) => {
+        return { text: file_name, uri: `docs://documents/${file_name}` };
+      });
+    } catch (e) {
+      console.error(e);
+      throw new Error('Error getting users resources');
+    }
+
+    return {
+      contents,
     };
   }
 );
