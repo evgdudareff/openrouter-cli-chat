@@ -1,4 +1,6 @@
 import { OpenRouter } from '@openrouter/sdk';
+import { MessageParam } from '../mcp-clients/types';
+import { ToolDefinitionJson } from '@openrouter/sdk/esm/models';
 
 export class OpenRouterClient {
   client: OpenRouter;
@@ -11,17 +13,14 @@ export class OpenRouterClient {
     this.model = model;
   }
 
-  async sendMessage(inputStr: string) {
-    const response = await this.client.chat.send({
+  async sendMessage(
+    messages: MessageParam[],
+    tools: ToolDefinitionJson[] = []
+  ) {
+    return await this.client.chat.send({
       model: this.model,
-      messages: [
-        {
-          role: 'user',
-          content: inputStr,
-        },
-      ],
-      stream: false,
+      messages,
+      tools,
     });
-    return response.choices[0].message.content;
   }
 }

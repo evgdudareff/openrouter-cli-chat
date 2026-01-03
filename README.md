@@ -88,6 +88,10 @@ You: exit
 ### 3. MCP Servers (`src/mcp-servers/`)
 - **file-mcp-server** - читает локальные документы из директории `docs/`
 - Легко расширяется новыми инструментами
+- для локальной отладки нужного mcp-сервера выполните команду 
+```bash
+npx @modelcontextprotocol/inspector node path_to_server_index_js_file
+````
 
 ```
 ┌─────────────┐
