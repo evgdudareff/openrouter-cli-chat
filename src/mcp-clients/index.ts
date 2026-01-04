@@ -5,11 +5,17 @@ import { MessageParam, Tool } from './types';
 import readline from 'readline/promises';
 import { ToolDefinitionJson } from '@openrouter/sdk/esm/models';
 
+interface Prompt {
+  name: string;
+  description?: string;
+}
+
 export class MCPClient {
   private mcp: Client;
   private llmClient: OpenRouterClient;
   private transport: StdioClientTransport | null = null;
   private tools: Tool[] = [];
+  private prompts: Prompt[] = [];
 
   constructor() {
     this.llmClient = new OpenRouterClient(
@@ -44,8 +50,41 @@ export class MCPClient {
         'Connected to server with tools:',
         this.tools.map(({ name }) => name)
       );
+
+      // Загрузить доступные промпты
+      await this.loadPrompts();
     } catch (e) {
       console.log('Failed to connect to MCP server: ', e);
+      throw e;
+    }
+  }
+
+  async loadPrompts() {
+    try {
+      const promptsResult = await this.mcp.listPrompts();
+      this.prompts = promptsResult.prompts.map((prompt) => ({
+        name: prompt.name,
+        description: prompt.description,
+      }));
+      if (this.prompts.length > 0) {
+        console.log(
+          'Available prompts:',
+          this.prompts.map(({ name }) => name)
+        );
+      }
+    } catch (e) {
+      console.log('Failed to load prompts:', e);
+    }
+  }
+
+  async getPrompt(promptName: string, args: Record<string, string>) {
+    try {
+      return await this.mcp.getPrompt({
+        name: promptName,
+        arguments: args,
+      });
+    } catch (e) {
+      console.error(`Failed to get prompt ${promptName}:`, e);
       throw e;
     }
   }
@@ -112,6 +151,11 @@ export class MCPClient {
 
     try {
       console.log('\nMCP Client Started!');
+      console.log('Commands:');
+      console.log(
+        '  /prompt <name> <arg1=value1> [arg2=value2] - Use a prompt'
+      );
+      console.log('  exit - Exit the chat\n');
 
       while (true) {
         const userQuery = await rl.question(
@@ -121,6 +165,39 @@ export class MCPClient {
         if (userQuery.toLowerCase() === 'exit') {
           console.log('closing...');
           break;
+        }
+
+        if (userQuery.startsWith('/prompt ')) {
+          const promptCommand = userQuery.substring(8).trim();
+          const [promptName, ...argStrings] = promptCommand.split(' ');
+
+          const args: Record<string, string> = {};
+          for (const argStr of argStrings) {
+            const [key, value] = argStr.split('=');
+            if (key && value) {
+              args[key] = value;
+            }
+          }
+
+          try {
+            const promptResult = await this.getPrompt(promptName, args);
+            const firstMessage = promptResult.messages[0];
+            let promptText = '';
+
+            if (
+              firstMessage.content &&
+              typeof firstMessage.content === 'object'
+            ) {
+              const content = firstMessage.content as Record<string, unknown>;
+              promptText = (content.text as string) || '';
+            }
+
+            const response = await this.processQuery(promptText);
+            console.log('\n' + response);
+          } catch (error) {
+            console.error('Error executing prompt:', error);
+          }
+          continue;
         }
 
         const response = await this.processQuery(userQuery);

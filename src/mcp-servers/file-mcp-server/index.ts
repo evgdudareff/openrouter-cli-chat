@@ -3,7 +3,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import * as z from 'zod/v4';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { ReadResourceResult } from '@modelcontextprotocol/sdk/types';
+import {
+  GetPromptResult,
+  ReadResourceResult,
+} from '@modelcontextprotocol/sdk/types';
 
 const docsPath = path.resolve(
   process.cwd(),
@@ -115,6 +118,40 @@ server.registerResource(
 
     return {
       contents,
+    };
+  }
+);
+
+server.registerPrompt(
+  'summarize-doc-content',
+  {
+    title: 'Summarize doc content',
+    description: 'Summarize information from documents content',
+    argsSchema: {
+      docName: z.string().describe("The name of the user's document"),
+    },
+  },
+  async ({ docName }): Promise<GetPromptResult> => {
+    let docContent = '';
+
+    try {
+      const pathToDocument = getDocPath(docName);
+      docContent = await readFile(pathToDocument, 'utf8');
+    } catch (e) {
+      console.error(e);
+      throw new Error(`no file with these name ${docName} was found`);
+    }
+
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please summarize the following document content concisely:\n\n${docContent}`,
+          },
+        },
+      ],
     };
   }
 );
